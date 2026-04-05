@@ -1,0 +1,122 @@
+name: React CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version"
+        type: string
+        default: "20"
+      working-directory:
+        description: "Path to React project"
+        type: string
+        default: "frontend"
+      run-lint:
+        description: "Run ESLint"
+        type: boolean
+        default: true
+      run-typecheck:
+        description: "Run TypeScript check"
+        type: boolean
+        default: true
+      run-tests:
+        description: "Run Vitest"
+        type: boolean
+        default: true
+      run-build:
+        description: "Run production build"
+        type: boolean
+        default: true
+      package-manager:
+        description: "Package manager (npm or yarn)"
+        type: string
+        default: "npm"
+
+jobs:
+  lint:
+    if: ${{ inputs.run-lint }}
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.package-manager }} ci
+
+      - name: Run ESLint
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.package-manager }} run lint
+
+  typecheck:
+    if: ${{ inputs.run-typecheck }}
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.package-manager }} ci
+
+      - name: Run TypeScript check
+        working-directory: ${{ inputs.working-directory }}
+        run: npx tsc --noEmit
+
+  tests:
+    if: ${{ inputs.run-tests }}
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.package-manager }} ci
+
+      - name: Run tests
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.package-manager }} test -- --run
+
+  build:
+    if: ${{ inputs.run-build }}
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.package-manager }} ci
+
+      - name: Run build
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.package-manager }} run build
