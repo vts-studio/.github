@@ -107,6 +107,7 @@ jobs:
         run: |
           cp .env.example .env || true
           php artisan key:generate || true
+          php artisan jwt:secret --force 2>/dev/null || true
 
       - name: Run tests
         working-directory: ${{ inputs.working-directory }}
