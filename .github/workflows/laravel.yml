@@ -36,11 +36,6 @@ on:
         type: string
         default: "20"
 
-    secrets:
-      composer-auth:
-        description: "JSON object for COMPOSER_AUTH (for private packages like Laravel Nova)"
-        required: false
-
 jobs:
   pint:
     if: ${{ inputs.run-pint }}
@@ -58,7 +53,7 @@ jobs:
       - name: Install dependencies
         working-directory: ${{ inputs.working-directory }}
         env:
-          COMPOSER_AUTH: ${{ secrets.composer-auth }}
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
         run: composer install --no-interaction --prefer-dist
 
       - name: Run Pint
@@ -104,7 +99,7 @@ jobs:
       - name: Install dependencies
         working-directory: ${{ inputs.working-directory }}
         env:
-          COMPOSER_AUTH: ${{ secrets.composer-auth }}
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
         run: composer install --no-interaction --prefer-dist
 
       - name: Prepare environment
@@ -145,7 +140,7 @@ jobs:
       - name: Install dependencies
         working-directory: ${{ inputs.working-directory }}
         env:
-          COMPOSER_AUTH: ${{ secrets.composer-auth }}
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
         run: composer install --no-interaction --prefer-dist
 
       - name: Run PHPStan
