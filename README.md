@@ -55,6 +55,30 @@ jobs:
 | `run-build` | `true` | Run production build |
 | `package-manager` | `npm` | Package manager (`npm` or `yarn`) |
 
+### React Native CI
+
+**Usage**:
+
+```yaml
+jobs:
+  mobile:
+    uses: vts-studio/.github/.github/workflows/react-native.yml@main
+    with:
+      node-version: "20"
+      working-directory: "mobile"
+```
+
+**Jobs**: ESLint, TypeScript check, Jest tests
+
+| Input | Default | Description |
+|---|---|---|
+| `node-version` | `20` | Node.js version |
+| `working-directory` | `mobile` | Path to React Native project |
+| `run-lint` | `true` | Run ESLint |
+| `run-typecheck` | `true` | Run TypeScript check |
+| `run-tests` | `true` | Run Jest tests |
+| `package-manager` | `npm` | Package manager (`npm` or `yarn`) |
+
 ## Full Example (Monorepo)
 
 ```yaml
@@ -77,6 +101,9 @@ jobs:
     uses: vts-studio/.github/.github/workflows/react.yml@main
     with:
       node-version: "20"
+
+  mobile:
+    uses: vts-studio/.github/.github/workflows/react-native.yml@main
 ```
 
 ## Private Packages
