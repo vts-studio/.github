@@ -4,9 +4,9 @@ on:
   workflow_call:
     inputs:
       php-version:
-        description: "PHP version"
+        description: "PHP version — pin it to the PHP of the project's Sail image"
         type: string
-        default: "8.3"
+        default: "8.5"
       working-directory:
         description: "Path to Laravel project"
         type: string
@@ -34,7 +34,11 @@ on:
       node-version:
         description: "Node version (for frontend assets if needed)"
         type: string
-        default: "20"
+        default: "24"
+      mysql-version:
+        description: "MySQL image tag of the test database — keep it on the project's Sail one"
+        type: string
+        default: "8.4"
 
 jobs:
   pint:
@@ -42,7 +46,7 @@ jobs:
     name: Pint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -66,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:${{ inputs.mysql-version }}
         env:
           MYSQL_ROOT_PASSWORD: password
           MYSQL_DATABASE: testing
@@ -87,7 +91,7 @@ jobs:
           --health-timeout=5s
           --health-retries=3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -130,7 +134,7 @@ jobs:
     name: PHPStan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
