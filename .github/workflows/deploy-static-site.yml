@@ -1,0 +1,182 @@
+name: Deploy static site to S3 + CloudFront
+
+# Builds a static front — single-page app (Vite) or generated site (Nuxt generate) —
+# and ships it to a private S3 bucket served by CloudFront.
+#
+# The caller picks the GitHub environment; the deployment target comes from that
+# environment's variables, so one workflow serves every project and environment:
+#   S3_BUCKET                    bucket behind CloudFront
+#   CLOUDFRONT_DISTRIBUTION_ID   distribution serving that bucket
+#   AWS_REGION                   optional, eu-west-3 by default
+#   FRONTEND_URL                 optional, shown on the deployment
+#   AWS_DEPLOY_ROLE_ARN          IAM role assumed through GitHub OIDC (recommended)
+# Without AWS_DEPLOY_ROLE_ARN, the AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY secrets are
+# used instead — a transition for projects that have not moved to OIDC yet.
+#
+# Build variables: every environment variable starting with `env-prefix` (VITE_ by
+# default) plus the ones named in `build-variables`. They end up in public files, so
+# they are variables, never secrets.
+#
+# Caching: files under `hashed-assets-path` (content-hashed names) are cached for a
+# year; every other file is revalidated on each visit, so a deploy shows up at once.
+#
+# The caller job must grant `contents: read` and `id-token: write`, and pass
+# `secrets: inherit` while it still uses access keys.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "GitHub environment holding the deployment variables (e.g. staging, production)"
+        type: string
+        required: true
+      working-directory:
+        description: "Path to the front project"
+        type: string
+        default: "frontend"
+      node-version:
+        description: "Node.js version"
+        type: string
+        default: "24"
+      package-manager:
+        description: "npm or yarn (dependency cache)"
+        type: string
+        default: "npm"
+      install-command:
+        description: "Dependency installation command"
+        type: string
+        default: "npm ci"
+      build-command:
+        description: "Build command"
+        type: string
+        default: "npm run build"
+      output-directory:
+        description: "Build output, relative to working-directory"
+        type: string
+        default: "dist"
+      env-prefix:
+        description: "Environment variables with this prefix are passed to the build (empty = none)"
+        type: string
+        default: "VITE_"
+      build-variables:
+        description: "Space-separated names of other environment variables to pass to the build"
+        type: string
+        default: ""
+      hashed-assets-path:
+        description: "Directory of content-hashed files, cached for a year (assets for Vite, _nuxt for Nuxt)"
+        type: string
+        default: "assets"
+      well-known-content-type:
+        description: "Content-Type forced on .well-known/ files (e.g. application/json for app links); empty = left as is"
+        type: string
+        default: ""
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        required: false
+
+jobs:
+  deploy:
+    name: Deploy to S3 + CloudFront
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.FRONTEND_URL }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-3' }}
+      BUCKET: ${{ vars.S3_BUCKET }}
+      DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+      OUTPUT: ${{ inputs.output-directory }}
+      HASHED: ${{ inputs.hashed-assets-path }}
+      WELL_KNOWN_TYPE: ${{ inputs.well-known-content-type }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.package-manager == 'yarn' && 'yarn.lock' || 'package-lock.json' }}
+
+      - name: Install dependencies
+        env:
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: eval "$INSTALL_COMMAND"
+
+      - name: Expose the build variables
+        env:
+          VARS_JSON: ${{ toJSON(vars) }}
+          PREFIX: ${{ inputs.env-prefix }}
+          NAMES: ${{ inputs.build-variables }}
+        run: |
+          jq -r --arg prefix "$PREFIX" --arg names "$NAMES" '
+            ($names | split(" ") | map(select(. != ""))) as $listed
+            | to_entries[]
+            | select((($prefix != "") and (.key | startswith($prefix))) or (.key as $k | $listed | index($k)))
+            | "\(.key)=\(.value)"
+          ' <<< "$VARS_JSON" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          BUILD_COMMAND: ${{ inputs.build-command }}
+        run: eval "$BUILD_COMMAND"
+
+      - name: Check the deployment target
+        run: |
+          if [ -z "$BUCKET" ] || [ -z "$DISTRIBUTION_ID" ]; then
+            echo "::error::S3_BUCKET and CLOUDFRONT_DISTRIBUTION_ID must be set on the '${{ inputs.environment }}' environment"
+            exit 1
+          fi
+
+      - name: AWS credentials (GitHub OIDC)
+        if: vars.AWS_DEPLOY_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: AWS credentials (access keys, until the project moves to OIDC)
+        if: vars.AWS_DEPLOY_ROLE_ARN == ''
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Hashed files first, so a fresh page never references a missing asset.
+      - name: Upload hashed assets (cached for a year)
+        run: |
+          aws s3 sync "$OUTPUT" "s3://$BUCKET" --delete \
+            --exclude "*" --include "$HASHED/*" \
+            --cache-control "public, max-age=31536000, immutable"
+
+      # Stable names (HTML, sitemap, robots, favicon, public/ files): always revalidate.
+      # A long max-age would freeze them in browser caches, which no CloudFront
+      # invalidation can purge.
+      - name: Upload the other files (revalidated on each visit)
+        run: |
+          exclude_well_known=()
+          if [ -n "$WELL_KNOWN_TYPE" ]; then exclude_well_known=(--exclude ".well-known/*"); fi
+          aws s3 sync "$OUTPUT" "s3://$BUCKET" --delete \
+            --exclude "$HASHED/*" "${exclude_well_known[@]}" \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Upload .well-known (forced content type, short cache)
+        if: inputs.well-known-content-type != ''
+        run: |
+          if [ -d "$OUTPUT/.well-known" ]; then
+            aws s3 sync "$OUTPUT/.well-known" "s3://$BUCKET/.well-known" --delete \
+              --content-type "$WELL_KNOWN_TYPE" --metadata-directive REPLACE \
+              --cache-control "public, max-age=300"
+          fi
+
+      - name: Invalidate CloudFront
+        run: aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" --query 'Invalidation.Id' --output text
