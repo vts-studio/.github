@@ -2,6 +2,8 @@
 
 Reusable GitHub Actions workflows and org-level configuration for all VTS Studio repositories.
 
+Defaults follow the VTS stack — the PHP version [vts-product-template](https://github.com/vts-studio/vts-product-template) targets, the current Node LTS, the MySQL version Sail runs. A repository follows a default change unless it sets the input: pin `php-version` to the PHP of your Sail image (projects created from the template already do).
+
 ## Reusable Workflows
 
 ### Laravel CI
@@ -13,7 +15,7 @@ jobs:
   laravel:
     uses: vts-studio/.github/.github/workflows/laravel.yml@main
     with:
-      php-version: "8.3"
+      php-version: "8.5"
       working-directory: "backend"
       test-runner: "vendor/bin/pest"
 ```
@@ -22,7 +24,9 @@ jobs:
 
 | Input | Default | Description |
 |---|---|---|
-| `php-version` | `8.3` | PHP version |
+| `php-version` | `8.5` | PHP version — pin it to your Sail image |
+| `mysql-version` | `8.4` | MySQL image tag of the test database |
+| `node-version` | `24` | Node.js version (frontend assets, if needed) |
 | `working-directory` | `backend` | Path to Laravel project |
 | `test-runner` | `vendor/bin/pest` | Test command (`vendor/bin/pest` or `vendor/bin/phpunit`) |
 | `run-pint` | `true` | Run Laravel Pint check |
@@ -39,7 +43,7 @@ jobs:
   react:
     uses: vts-studio/.github/.github/workflows/react.yml@main
     with:
-      node-version: "20"
+      node-version: "24"
       working-directory: "frontend"
 ```
 
@@ -47,7 +51,7 @@ jobs:
 
 | Input | Default | Description |
 |---|---|---|
-| `node-version` | `20` | Node.js version |
+| `node-version` | `24` | Node.js version |
 | `working-directory` | `frontend` | Path to React project |
 | `run-lint` | `true` | Run ESLint |
 | `run-typecheck` | `true` | Run TypeScript check |
@@ -64,7 +68,7 @@ jobs:
   mobile:
     uses: vts-studio/.github/.github/workflows/react-native.yml@main
     with:
-      node-version: "20"
+      node-version: "24"
       working-directory: "mobile"
 ```
 
@@ -72,7 +76,7 @@ jobs:
 
 | Input | Default | Description |
 |---|---|---|
-| `node-version` | `20` | Node.js version |
+| `node-version` | `24` | Node.js version |
 | `working-directory` | `mobile` | Path to React Native project |
 | `run-lint` | `true` | Run ESLint |
 | `run-typecheck` | `true` | Run TypeScript check |
@@ -99,8 +103,6 @@ jobs:
 
   react:
     uses: vts-studio/.github/.github/workflows/react.yml@main
-    with:
-      node-version: "20"
 
   mobile:
     uses: vts-studio/.github/.github/workflows/react-native.yml@main

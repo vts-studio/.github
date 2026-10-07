@@ -9,8 +9,9 @@ This is the org-level `.github` repository for VTS Studio. It contains reusable 
 ```
 .github/
   workflows/
-    laravel.yml   — Reusable CI for Laravel backends (Pint, Tests, PHPStan)
-    react.yml     — Reusable CI for React frontends (ESLint, TypeScript, Vitest, Build)
+    laravel.yml        — Reusable CI for Laravel backends (Pint, Tests, PHPStan)
+    react.yml          — Reusable CI for React frontends (ESLint, TypeScript, Vitest, Build)
+    react-native.yml   — Reusable CI for React Native apps (ESLint, TypeScript, Jest)
 ```
 
 ## How It Works
@@ -24,7 +25,7 @@ jobs:
   laravel:
     uses: vts-studio/.github/.github/workflows/laravel.yml@main
     with:
-      php-version: "8.3"
+      php-version: "8.5"
       test-runner: "vendor/bin/pest"
 ```
 
@@ -35,12 +36,14 @@ jobs:
 - Jobs run in parallel when independent
 - Services (MySQL, Redis) are only spun up in the test job, not in linting jobs
 - Boolean inputs (`run-pint`, `run-tests`, etc.) allow repos to disable specific checks
+- Defaults follow the VTS stack: the PHP version `vts-product-template` targets, the current Node LTS, the MySQL version Sail runs
+- Callers use `@main`, so a default change reaches every repository that does not set the input. Before changing one, list the callers across the org (each repo's `.github/workflows/`) and say in the PR which ones move
 
 ## Tech Stack
 
 - GitHub Actions (YAML)
 - PHP tooling: Laravel Pint, PHPUnit/Pest, PHPStan
-- Node tooling: ESLint, TypeScript, Vitest, npm/yarn
+- Node tooling: ESLint, TypeScript, Vitest, Jest, npm/yarn
 
 ## Commands
 
