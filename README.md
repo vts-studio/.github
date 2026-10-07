@@ -106,6 +106,47 @@ jobs:
     uses: vts-studio/.github/.github/workflows/react-native.yml@main
 ```
 
+## Deployment Workflows
+
+### Deploy SPA (S3 + CloudFront)
+
+Builds a single-page app and ships it to a private S3 bucket served by CloudFront: hashed assets cached for a year, `index.html` never cached, CloudFront invalidated. AWS access goes through **GitHub OIDC** — no AWS key is stored in GitHub.
+
+**Usage** — `.github/workflows/deploy-frontend.yml` in the project:
+
+```yaml
+name: Deploy frontend
+
+on:
+  push:
+    branches: [deploy-staging, deploy-production]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  frontend:
+    uses: vts-studio/.github/.github/workflows/deploy-spa.yml@main
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      environment: ${{ github.ref_name == 'deploy-production' && 'production' || 'staging' }}
+```
+
+| Input | Default | Description |
+|---|---|---|
+| `environment` | — (required) | GitHub environment holding the deployment variables |
+| `working-directory` | `frontend` | Path to the SPA project |
+| `node-version` | `24` | Node.js version |
+| `build-command` | `npm run build` | Build command |
+| `output-directory` | `dist` | Build output, relative to `working-directory` |
+| `env-prefix` | `VITE_` | Environment variables with this prefix are passed to the build |
+
+**Variables of each GitHub environment** (Settings → Environments): `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `FRONTEND_URL`, plus the build variables (`VITE_API_URL`, …). Lock each environment to its deploy branch (*Deployment branches*), and make the IAM role trust only that environment: `repo:vts-studio/<repo>:environment:<environment>` in the `token.actions.githubusercontent.com:sub` condition.
+
 ## Private Packages
 
 If your project uses private Composer packages (e.g. Laravel Nova), add a `COMPOSER_AUTH` secret to your repo with your credentials.

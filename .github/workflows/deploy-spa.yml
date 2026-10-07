@@ -1,0 +1,104 @@
+name: Deploy SPA to S3 + CloudFront
+
+# Builds a single-page app and ships it to a private S3 bucket served by CloudFront.
+#
+# The caller picks the GitHub environment; everything else comes from that
+# environment's variables, so one workflow serves every project and environment:
+#   AWS_REGION                   e.g. eu-west-3
+#   AWS_DEPLOY_ROLE_ARN          IAM role assumed through GitHub OIDC (no stored AWS key)
+#   S3_BUCKET                    bucket behind CloudFront
+#   CLOUDFRONT_DISTRIBUTION_ID   distribution serving that bucket
+#   FRONTEND_URL                 public URL, shown on the deployment
+#   <env-prefix>*                build-time variables (VITE_* by default) — they end up
+#                                in the public bundle, so they are variables, never secrets
+#
+# The caller job must grant `id-token: write` (OIDC) and `contents: read`.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "GitHub environment holding the variables above (e.g. staging, production)"
+        type: string
+        required: true
+      working-directory:
+        description: "Path to the SPA project"
+        type: string
+        default: "frontend"
+      node-version:
+        description: "Node.js version"
+        type: string
+        default: "24"
+      build-command:
+        description: "Build command"
+        type: string
+        default: "npm run build"
+      output-directory:
+        description: "Build output, relative to working-directory"
+        type: string
+        default: "dist"
+      env-prefix:
+        description: "Prefix of the environment variables passed to the build"
+        type: string
+        default: "VITE_"
+
+jobs:
+  deploy:
+    name: Deploy to S3 + CloudFront
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.FRONTEND_URL }}
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - run: npm ci
+
+      - name: Expose the environment's build variables
+        env:
+          VARS_JSON: ${{ toJSON(vars) }}
+          PREFIX: ${{ inputs.env-prefix }}
+        run: |
+          jq -r --arg prefix "$PREFIX" 'to_entries[] | select(.key | startswith($prefix)) | "\(.key)=\(.value)"' <<< "$VARS_JSON" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          BUILD_COMMAND: ${{ inputs.build-command }}
+        run: eval "$BUILD_COMMAND"
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Hashed asset names are immutable; index.html is the entry point and must
+      # never be cached, so a deploy is picked up on the next page load.
+      - name: Upload assets (cached for a year)
+        env:
+          BUCKET: ${{ vars.S3_BUCKET }}
+          OUTPUT: ${{ inputs.output-directory }}
+        run: aws s3 sync "$OUTPUT/" "s3://${BUCKET}/" --delete --exclude index.html --cache-control "public, max-age=31536000, immutable"
+
+      - name: Upload index.html (never cached)
+        env:
+          BUCKET: ${{ vars.S3_BUCKET }}
+          OUTPUT: ${{ inputs.output-directory }}
+        run: aws s3 cp "$OUTPUT/index.html" "s3://${BUCKET}/index.html" --cache-control "public, max-age=0, must-revalidate" --content-type "text/html; charset=utf-8"
+
+      - name: Invalidate CloudFront
+        env:
+          DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: aws cloudfront create-invalidation --distribution-id "${DISTRIBUTION_ID}" --paths "/*" --query 'Invalidation.Id' --output text

@@ -45,3 +45,7 @@ jobs:
 ## Commands
 
 No local commands — this repo is consumed by GitHub Actions only.
+
+## Deployment workflows
+
+- `deploy-spa.yml` — builds a SPA and deploys it to S3 + CloudFront, authenticated through GitHub OIDC. Per-environment settings come from the caller's GitHub environment variables, never from inputs, so one workflow serves every project.
