@@ -36,9 +36,9 @@ on:
         type: string
         default: "ubuntu-latest"
       vitest-max-workers:
-        description: "Vitest --maxWorkers. Vitest's run-mode default leaves a core idle, which on the standard 2-core runner means a single worker; '100%' uses every core. Empty keeps Vitest's default"
+        description: "Vitest --maxWorkers, e.g. '100%'. Vitest's run-mode default leaves a core idle, which on the standard 2-core runner means a single worker. Empty (default) keeps Vitest's default"
         type: string
-        default: "100%"
+        default: ""
 
 jobs:
   lint:

@@ -61,7 +61,7 @@ jobs:
 | `run-build` | `true` | Run production build |
 | `package-manager` | `npm` | Package manager (`npm` or `yarn`) |
 | `tests-runs-on` | `ubuntu-latest` | Runner of the Tests job, e.g. an org larger runner when the suite uses its cores (Vitest `maxWorkers`). The other jobs stay on `ubuntu-latest` |
-| `vitest-max-workers` | `100%` | Vitest `--maxWorkers`. Vitest's run-mode default leaves a core idle, which on the standard 2-core runner means a single worker. Empty keeps Vitest's default |
+| `vitest-max-workers` | — | Vitest `--maxWorkers`, e.g. `100%`. Vitest's run-mode default leaves a core idle, which on the standard 2-core runner means a single worker. Empty keeps Vitest's default |
 
 ### React Native CI
 
