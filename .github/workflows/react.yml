@@ -31,6 +31,14 @@ on:
         description: "Package manager (npm or yarn)"
         type: string
         default: "npm"
+      tests-runs-on:
+        description: "Runner of the Tests job, e.g. an org larger runner for a suite that uses its cores. The other jobs stay on ubuntu-latest"
+        type: string
+        default: "ubuntu-latest"
+      vitest-max-workers:
+        description: "Vitest --maxWorkers, e.g. '100%'. Vitest's run-mode default leaves a core idle, which on the standard 2-core runner means a single worker. Empty (default) keeps Vitest's default"
+        type: string
+        default: ""
 
 jobs:
   lint:
@@ -80,7 +88,7 @@ jobs:
   tests:
     if: ${{ inputs.run-tests }}
     name: Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.tests-runs-on }}
     steps:
       - uses: actions/checkout@v7
 
@@ -97,7 +105,7 @@ jobs:
 
       - name: Run tests
         working-directory: ${{ inputs.working-directory }}
-        run: ${{ inputs.package-manager }} test -- --run
+        run: ${{ inputs.package-manager }} test -- --run${{ inputs.vitest-max-workers != '' && format(' --maxWorkers={0}', inputs.vitest-max-workers) || '' }}
 
   build:
     if: ${{ inputs.run-build }}
