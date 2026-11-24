@@ -7,6 +7,10 @@ on:
         description: "PHP version — pin it to the PHP of the project's Sail image"
         type: string
         default: "8.5"
+      php-ini-values:
+        description: "php.ini values for every job, as setup-php's ini-values (e.g. 'opcache.enable_cli=1, memory_limit=1G'). Unlike `php -d` in test-runner, they reach the worker processes of `pest --parallel`"
+        type: string
+        default: ""
       working-directory:
         description: "Path to Laravel project"
         type: string
@@ -39,6 +43,10 @@ on:
         description: "MySQL image tag of the test database — keep it on the project's Sail one"
         type: string
         default: "8.4"
+      tests-runs-on:
+        description: "Runner of the Tests job, e.g. an org larger runner for a suite that uses its cores (pest --parallel). The other jobs stay on ubuntu-latest"
+        type: string
+        default: "ubuntu-latest"
 
 jobs:
   pint:
@@ -53,6 +61,7 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           coverage: none
+          ini-values: ${{ inputs.php-ini-values }}
 
       - name: Install dependencies
         working-directory: ${{ inputs.working-directory }}
@@ -67,7 +76,7 @@ jobs:
   tests:
     if: ${{ inputs.run-tests }}
     name: Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.tests-runs-on }}
     services:
       mysql:
         image: mysql:${{ inputs.mysql-version }}
@@ -99,6 +108,7 @@ jobs:
           php-version: ${{ inputs.php-version }}
           extensions: mbstring, pdo, pdo_mysql, redis
           coverage: none
+          ini-values: ${{ inputs.php-ini-values }}
 
       - name: Install dependencies
         working-directory: ${{ inputs.working-directory }}
@@ -141,6 +151,7 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           coverage: none
+          ini-values: ${{ inputs.php-ini-values }}
 
       - name: Install dependencies
         working-directory: ${{ inputs.working-directory }}

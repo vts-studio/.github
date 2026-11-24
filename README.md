@@ -25,6 +25,7 @@ jobs:
 | Input | Default | Description |
 |---|---|---|
 | `php-version` | `8.5` | PHP version — pin it to your Sail image |
+| `php-ini-values` | — | php.ini values for every job (setup-php `ini-values`). Unlike `php -d` in `test-runner`, they reach the worker processes of `pest --parallel` |
 | `mysql-version` | `8.4` | MySQL image tag of the test database |
 | `node-version` | `24` | Node.js version (frontend assets, if needed) |
 | `working-directory` | `backend` | Path to Laravel project |
@@ -33,6 +34,7 @@ jobs:
 | `run-tests` | `true` | Run test suite |
 | `run-phpstan` | `false` | Run PHPStan static analysis |
 | `phpstan-level` | `5` | PHPStan analysis level (0-9) |
+| `tests-runs-on` | `ubuntu-latest` | Runner of the Tests job, e.g. an org larger runner when the suite uses its cores (`pest --parallel`). The other jobs stay on `ubuntu-latest` |
 
 ### React CI
 
@@ -58,6 +60,7 @@ jobs:
 | `run-tests` | `true` | Run Vitest |
 | `run-build` | `true` | Run production build |
 | `package-manager` | `npm` | Package manager (`npm` or `yarn`) |
+| `tests-runs-on` | `ubuntu-latest` | Runner of the Tests job, e.g. an org larger runner when the suite uses its cores (Vitest `maxWorkers`). The other jobs stay on `ubuntu-latest` |
 
 ### React Native CI
 
